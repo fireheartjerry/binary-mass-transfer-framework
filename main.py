@@ -403,6 +403,7 @@ def generate_all_results(output_dir: str = ".", use_cache: bool = True):
     colors = [COLORS["blue"], COLORS["orange"], COLORS["purple"]]
     labels = [r"$q_0 = 0.5$ (expansion)", r"$q_0 = 1.0$ (weak expansion)", r"$q_0 = 2.0$ (contraction)"]
 
+    # Figure 1: Orbital Evolution (osculating SMA)
     fig, ax = plt.subplots(figsize=(9, 6.5))
     for r, c, lab in zip(enforced, colors, labels):
         ax.plot(r["times"], r["separations"], color=c, label=lab, linewidth=2.2, alpha=0.9)
@@ -410,9 +411,10 @@ def generate_all_results(output_dir: str = ".", use_cache: bool = True):
     ax.legend(loc="best", framealpha=0.98)
     ax.minorticks_on()
     fig.tight_layout()
-    fig.savefig(f"{output_dir}/figure1_osculating_sma.pdf", dpi=600, bbox_inches="tight")
+    fig.savefig(f"{output_dir}/fig1.jpg", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
+    # Figure 2: Conservation diagnostics (L error + energy)
     fig, (axL, axE) = plt.subplots(1, 2, figsize=(14, 6))
     x = np.arange(3)
     mean_err, max_err = [], []
@@ -436,26 +438,10 @@ def generate_all_results(output_dir: str = ".", use_cache: bool = True):
     axE.legend(loc="best", framealpha=0.98)
     axE.minorticks_on()
     fig.tight_layout(pad=2.0)
-    fig.savefig(f"{output_dir}/figure2_conservation.pdf", dpi=600, bbox_inches="tight")
+    fig.savefig(f"{output_dir}/fig2.jpg", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(9, 6.5))
-    width = 0.38
-    num = [r["a_ratio_numerical"] for r in enforced]
-    ana = [r["a_ratio_analytical"] for r in enforced]
-    err = [r["error_percent"] for r in enforced]
-    ax.bar(x - width / 2, num, width, label="Numerical Simulation", color=COLORS["blue"], edgecolor="black", linewidth=1.2, alpha=0.85)
-    ax.bar(x + width / 2, ana, width, label="Analytical Prediction", color=COLORS["orange"], edgecolor="black", linewidth=1.2, alpha=0.85, hatch="//")
-    for i, (n, a, e) in enumerate(zip(num, ana, err)):
-        ax.annotate(f"Δ = {e:.4f}%", xy=(i, max(n, a) + 0.04), ha="center", fontsize=10, color=COLORS["green"], fontweight="bold", bbox=dict(boxstyle="round,pad=0.4", facecolor="white", edgecolor=COLORS["green"], linewidth=1.5, alpha=0.9))
-    ax.set(xlabel=r"Initial Mass Ratio, $q_0 = M_1/M_2$", ylabel=r"Final Semi-major Axis Ratio, $a_f/a_0$", title="Numerical Validation Against Analytical Predictions", ylim=(0, 1.45))
-    ax.set_xticks(x, ["0.5", "1.0", "2.0"])
-    ax.legend(loc="upper left", framealpha=0.98)
-    ax.minorticks_on()
-    fig.tight_layout()
-    fig.savefig(f"{output_dir}/figure3_comparison.pdf", dpi=600, bbox_inches="tight")
-    plt.close(fig)
-
+    # Figure 3: Failure mode (with vs without L enforcement)
     fig, ax = plt.subplots(figsize=(10, 6.5))
     idx = 2
     rE, rN = enforced[idx], non_enforced[idx]
@@ -474,7 +460,25 @@ def generate_all_results(output_dir: str = ".", use_cache: bool = True):
     ax.minorticks_on()
     ax.text(0.028, 0.30, "Without enforcement, discrete mass transfer\ncauses angular momentum to drift at each step.\nThis accumulated drift, not integrator error,\ndrives the deviation from the analytical line.", transform=ax.transAxes, fontsize=10, verticalalignment="top", bbox=dict(boxstyle="round,pad=0.6", facecolor="#FFF8DC", edgecolor=COLORS["gray"], linewidth=1.5, alpha=0.95), linespacing=1.5)
     fig.tight_layout()
-    fig.savefig(f"{output_dir}/figure4_failure_modes.pdf", dpi=600, bbox_inches="tight")
+    fig.savefig(f"{output_dir}/fig3.jpg", dpi=600, bbox_inches="tight")
+    plt.close(fig)
+
+    # Figure 4: Numerical validation bar chart
+    fig, ax = plt.subplots(figsize=(9, 6.5))
+    width = 0.38
+    num = [r["a_ratio_numerical"] for r in enforced]
+    ana = [r["a_ratio_analytical"] for r in enforced]
+    err = [r["error_percent"] for r in enforced]
+    ax.bar(x - width / 2, num, width, label="Numerical Simulation", color=COLORS["blue"], edgecolor="black", linewidth=1.2, alpha=0.85)
+    ax.bar(x + width / 2, ana, width, label="Analytical Prediction", color=COLORS["orange"], edgecolor="black", linewidth=1.2, alpha=0.85, hatch="//")
+    for i, (n, a, e) in enumerate(zip(num, ana, err)):
+        ax.annotate(f"Δ = {e:.4f}%", xy=(i, max(n, a) + 0.04), ha="center", fontsize=10, color=COLORS["green"], fontweight="bold", bbox=dict(boxstyle="round,pad=0.4", facecolor="white", edgecolor=COLORS["green"], linewidth=1.5, alpha=0.9))
+    ax.set(xlabel=r"Initial Mass Ratio, $q_0 = M_1/M_2$", ylabel=r"Final Semi-major Axis Ratio, $a_f/a_0$", title="Numerical Validation Against Analytical Predictions", ylim=(0, 1.45))
+    ax.set_xticks(x, ["0.5", "1.0", "2.0"])
+    ax.legend(loc="upper left", framealpha=0.98)
+    ax.minorticks_on()
+    fig.tight_layout()
+    fig.savefig(f"{output_dir}/fig4.jpg", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
     if _RICH and Panel is not None:
