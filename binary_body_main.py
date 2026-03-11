@@ -410,12 +410,11 @@ def generate_all_results(output_dir: str = ".", use_cache: bool = True):
                     enforced.append(rE)
                     non_enforced.append(rN)
 
-        if use_cache:
-            try:
-                _save_cache(cache, enforced, non_enforced)
-                console.print(f"[green]Saved cache:[/] {cache}") if _RICH else print(f"Saved cache: {cache}")
-            except Exception as e:
-                console.print(f"[yellow]Cache save failed[/]: {e}") if _RICH else print(f"Cache save failed: {e}")
+        try:
+            _save_cache(cache, enforced, non_enforced)
+            console.print(f"[green]Saved results:[/] {cache}") if _RICH else print(f"Saved results: {cache}")
+        except Exception as e:
+            console.print(f"[yellow]Results save failed[/]: {e}") if _RICH else print(f"Results save failed: {e}")
 
     _print_tables(enforced, non_enforced, mass_ratios, case_names, behaviors)
 

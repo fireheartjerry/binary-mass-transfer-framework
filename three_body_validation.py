@@ -2,6 +2,7 @@ import numpy as np
 import json
 import csv
 import matplotlib.pyplot as plt
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 try:
     from rich.console import Console
@@ -221,6 +222,15 @@ def cleanPlotSeries(y):
     return y_clean
 
 
+def _run_one_three_body(job):
+    """Top-level picklable worker — runs one three-body case."""
+    result = runThreeBodyCase(
+        job["case_label"], job["m3_solar"], job["a3_au"], job["enforce_closure"]
+    )
+    result["_key"] = job["key"]
+    return result
+
+
 def _mk_progress():
     if not _RICH:
         return None
@@ -302,7 +312,7 @@ def runThreeBodyCase(case_label, m3_solar, a3_au, enforce_closure, q0=2.0, m2_so
     return result
 
 
-def saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E):
+def saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E, output_dir="."):
     summary = {
         "D": {
             "description": "Weak perturber",
@@ -324,10 +334,11 @@ def saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E):
         },
     }
 
-    with open("threebody_summary.json", "w") as f:
+    import os
+    with open(os.path.join(output_dir, "threebody_summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
 
-    with open("threebody_table.csv", "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(output_dir, "threebody_table.csv"), "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
             "Case",
@@ -357,7 +368,7 @@ def saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E):
             unclosed_E["mean_jump"],
         ])
 
-    with open("threebody_table.tex", "w") as f:
+    with open(os.path.join(output_dir, "threebody_table.tex"), "w") as f:
         f.write("\\begin{tabular}{@{}lcccccc@{}}\n")
         f.write("Case & $m_3$ ($M_\\odot$) & $a_3$ (AU) & $(a_f/a_0)_{\\rm closed}$ & $(a_f/a_0)_{\\rm unclosed}$ & $\\langle |\\Delta L_{\\rm pair}|/L_0 \\rangle_{\\rm closed}$ & $\\langle |\\Delta L_{\\rm pair}|/L_0 \\rangle_{\\rm unclosed}$ \\\\\n")
         f.write("\\midrule\n")
@@ -366,7 +377,7 @@ def saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E):
         f.write("\\end{tabular}\n")
 
 
-def makeFigure(closed_D, unclosed_D, closed_E, unclosed_E):
+def makeFigure(closed_D, unclosed_D, closed_E, unclosed_E, output_dir="."):
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 11,
@@ -431,11 +442,12 @@ def makeFigure(closed_D, unclosed_D, closed_E, unclosed_E):
     axes[1].legend(loc="lower left", fontsize=10, framealpha=0.95)
 
     fig.tight_layout()
-    fig.savefig("fig5.jpg", dpi=400, bbox_inches="tight")
+    import os
+    fig.savefig(os.path.join(output_dir, "fig5.jpg"), dpi=400, bbox_inches="tight")
     plt.close(fig)
 
 
-def main():
+def main(output_dir="."):
     title = "Three-Body Validation (Hierarchical Triple)"
     subtitle = "Weak & stronger perturbers; closed vs unclosed mass transfer."
     if _RICH and Panel is not None:
@@ -443,36 +455,33 @@ def main():
     else:
         print("=" * 70 + f"\n{title}\n{subtitle}\n" + "=" * 70)
 
-    # n_orbits=50, steps_per_orbit=4000 → 200 000 steps per run
-    n_steps_each = 50 * 4000
+    jobs = [
+        {"key": "closed_D",   "case_label": "D", "m3_solar": 0.3, "a3_au": 8.0, "enforce_closure": True},
+        {"key": "unclosed_D", "case_label": "D", "m3_solar": 0.3, "a3_au": 8.0, "enforce_closure": False},
+        {"key": "closed_E",   "case_label": "E", "m3_solar": 0.8, "a3_au": 5.0, "enforce_closure": True},
+        {"key": "unclosed_E", "case_label": "E", "m3_solar": 0.8, "a3_au": 5.0, "enforce_closure": False},
+    ]
 
+    raw = {}
     prog = _mk_progress()
     if prog is None:
-        print("Case D | closed")
-        closed_D = runThreeBodyCase("D", 0.3, 8.0, True)
-        print("Case D | unclosed")
-        unclosed_D = runThreeBodyCase("D", 0.3, 8.0, False)
-        print("Case E | closed")
-        closed_E = runThreeBodyCase("E", 0.8, 5.0, True)
-        print("Case E | unclosed")
-        unclosed_E = runThreeBodyCase("E", 0.8, 5.0, False)
+        for job in jobs:
+            print(f"Running {job['key']}...")
+            raw[job["key"]] = _run_one_three_body(job)
     else:
         with prog:
-            tDc = prog.add_task("Case D (m3=0.3, a3=8 AU) | closed",   total=n_steps_each)
-            closed_D   = runThreeBodyCase("D", 0.3, 8.0, True,  progress=prog, task_id=tDc)
-            prog.update(tDc, completed=n_steps_each)
+            task = prog.add_task(f"Running {len(jobs)} three-body cases", total=len(jobs))
+            with ProcessPoolExecutor(max_workers=len(jobs)) as executor:
+                futures = {executor.submit(_run_one_three_body, job): job for job in jobs}
+                for future in as_completed(futures):
+                    out = future.result()
+                    raw[out["_key"]] = out
+                    prog.advance(task)
 
-            tDu = prog.add_task("Case D (m3=0.3, a3=8 AU) | unclosed", total=n_steps_each)
-            unclosed_D = runThreeBodyCase("D", 0.3, 8.0, False, progress=prog, task_id=tDu)
-            prog.update(tDu, completed=n_steps_each)
-
-            tEc = prog.add_task("Case E (m3=0.8, a3=5 AU) | closed",   total=n_steps_each)
-            closed_E   = runThreeBodyCase("E", 0.8, 5.0, True,  progress=prog, task_id=tEc)
-            prog.update(tEc, completed=n_steps_each)
-
-            tEu = prog.add_task("Case E (m3=0.8, a3=5 AU) | unclosed", total=n_steps_each)
-            unclosed_E = runThreeBodyCase("E", 0.8, 5.0, False, progress=prog, task_id=tEu)
-            prog.update(tEu, completed=n_steps_each)
+    closed_D   = raw["closed_D"]
+    unclosed_D = raw["unclosed_D"]
+    closed_E   = raw["closed_E"]
+    unclosed_E = raw["unclosed_E"]
 
     if _RICH and Table is not None:
         t = Table(title="Three-Body Results")
@@ -490,10 +499,10 @@ def main():
         print(f"E: closed={closed_E['a_ratio_final']:.4f}, unclosed={unclosed_E['a_ratio_final']:.4f}")
 
     console.print("\n[bold]Saving outputs...[/]") if _RICH else print("\nSaving outputs...")
-    saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E)
+    saveOutputs(closed_D, unclosed_D, closed_E, unclosed_E, output_dir)
 
     console.print("[bold]Generating figure...[/]") if _RICH else print("Generating figure...")
-    makeFigure(closed_D, unclosed_D, closed_E, unclosed_E)
+    makeFigure(closed_D, unclosed_D, closed_E, unclosed_E, output_dir)
 
     if _RICH and Panel is not None:
         console.print(Panel.fit("[bold green]Three-body validation complete.[/]", border_style="green"))

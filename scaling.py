@@ -245,7 +245,7 @@ def _assemble_results(raw):
     return results
 
 
-def main():
+def main(output_dir="."):
     title = "Mass-Transfer Fraction Scaling Study"
     subtitle = "Unclosed drift scaling across transfer fractions with analytical verification."
     if _RICH and Panel is not None:
@@ -288,7 +288,7 @@ def main():
     _print_condensed_table(results)
     _print_verification_summary(results)
 
-    csv_path = "./scaling_results.csv"
+    csv_path = os.path.join(output_dir, "scaling_results.csv")
     _write_csv(results, csv_path)
     console.print(f"[green]CSV saved to:[/] {csv_path}") if _RICH else print(f"\nCSV saved to: {csv_path}")
 
