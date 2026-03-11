@@ -1,0 +1,20 @@
+{
+  "D": {
+    "description": "Weak perturber",
+    "m3_msun": 0.3,
+    "a3_au": 8.0,
+    "a_ratio_closed": 0.8187215571077274,
+    "a_ratio_unclosed": 0.9994563738816815,
+    "mean_jump_closed": 9.463307160185562e-17,
+    "mean_jump_unclosed": 0.00019971212100240436
+  },
+  "E": {
+    "description": "Stronger perturber",
+    "m3_msun": 0.8,
+    "a3_au": 5.0,
+    "a_ratio_closed": 0.8157065240372552,
+    "a_ratio_unclosed": 0.9970071429661238,
+    "mean_jump_closed": 1.0572811401371955e-16,
+    "mean_jump_unclosed": 0.00019971212100241108
+  }
+}
